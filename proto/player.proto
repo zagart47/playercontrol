@@ -5,7 +5,7 @@ package proto;
 option go_package = ".;pb";
 
 service PlayerService {
-  rpc Play(PlayRequest) returns (PlayResponse) {}
+  rpc Play(PlayRequest) returns (stream PlayResponse) {}
   rpc Pause(PauseRequest) returns (PauseResponse) {}
   rpc Next(NextRequest) returns (NextResponse) {}
   rpc Prev(PrevRequest) returns (PrevResponse) {}
@@ -18,6 +18,7 @@ service PlayerService {
 message PlayRequest {
 }
 message PlayResponse {
+  string info = 1;
 }
 
 message PauseRequest {
@@ -39,4 +40,3 @@ message DeleteSongRequest{}
 message DeleteSongResponse{}
 message UpdateSongRequest{}
 message UpdateSongResponse{}
-

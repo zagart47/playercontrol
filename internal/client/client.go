@@ -21,9 +21,20 @@ func New(conn grpc.ClientConnInterface) Client {
 	return Client{client: pb.NewPlayerServiceClient(conn)}
 }
 
-func (c Client) Play() {
-	//TODO implement me
-	panic("implement me")
+func (c Client) Play() (pb.PlayerService_PlayClient, error) {
+	playerClient := New(config.Server)
+	stream, err := playerClient.client.Play(context.Background(), &pb.PlayRequest{})
+	if err != nil {
+		return nil, err
+	}
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			break
+		}
+		fmt.Println(req.Info)
+	}
+	return nil, err
 }
 
 func (c Client) Pause() {

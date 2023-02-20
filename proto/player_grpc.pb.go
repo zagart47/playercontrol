@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PlayerServiceClient interface {
-	Play(ctx context.Context, in *PlayRequest, opts ...grpc.CallOption) (*PlayResponse, error)
+	Play(ctx context.Context, in *PlayRequest, opts ...grpc.CallOption) (PlayerService_PlayClient, error)
 	Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error)
 	Next(ctx context.Context, in *NextRequest, opts ...grpc.CallOption) (*NextResponse, error)
 	Prev(ctx context.Context, in *PrevRequest, opts ...grpc.CallOption) (*PrevResponse, error)
@@ -39,13 +39,36 @@ func NewPlayerServiceClient(cc grpc.ClientConnInterface) PlayerServiceClient {
 	return &playerServiceClient{cc}
 }
 
-func (c *playerServiceClient) Play(ctx context.Context, in *PlayRequest, opts ...grpc.CallOption) (*PlayResponse, error) {
-	out := new(PlayResponse)
-	err := c.cc.Invoke(ctx, "/proto.PlayerService/Play", in, out, opts...)
+func (c *playerServiceClient) Play(ctx context.Context, in *PlayRequest, opts ...grpc.CallOption) (PlayerService_PlayClient, error) {
+	stream, err := c.cc.NewStream(ctx, &PlayerService_ServiceDesc.Streams[0], "/proto.PlayerService/Play", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &playerServicePlayClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type PlayerService_PlayClient interface {
+	Recv() (*PlayResponse, error)
+	grpc.ClientStream
+}
+
+type playerServicePlayClient struct {
+	grpc.ClientStream
+}
+
+func (x *playerServicePlayClient) Recv() (*PlayResponse, error) {
+	m := new(PlayResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *playerServiceClient) Pause(ctx context.Context, in *PauseRequest, opts ...grpc.CallOption) (*PauseResponse, error) {
@@ -76,7 +99,7 @@ func (c *playerServiceClient) Prev(ctx context.Context, in *PrevRequest, opts ..
 }
 
 func (c *playerServiceClient) AddSong(ctx context.Context, opts ...grpc.CallOption) (PlayerService_AddSongClient, error) {
-	stream, err := c.cc.NewStream(ctx, &PlayerService_ServiceDesc.Streams[0], "/proto.PlayerService/AddSong", opts...)
+	stream, err := c.cc.NewStream(ctx, &PlayerService_ServiceDesc.Streams[1], "/proto.PlayerService/AddSong", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +154,7 @@ func (c *playerServiceClient) UpdateSong(ctx context.Context, in *UpdateSongRequ
 // All implementations must embed UnimplementedPlayerServiceServer
 // for forward compatibility
 type PlayerServiceServer interface {
-	Play(context.Context, *PlayRequest) (*PlayResponse, error)
+	Play(*PlayRequest, PlayerService_PlayServer) error
 	Pause(context.Context, *PauseRequest) (*PauseResponse, error)
 	Next(context.Context, *NextRequest) (*NextResponse, error)
 	Prev(context.Context, *PrevRequest) (*PrevResponse, error)
@@ -145,8 +168,8 @@ type PlayerServiceServer interface {
 type UnimplementedPlayerServiceServer struct {
 }
 
-func (UnimplementedPlayerServiceServer) Play(context.Context, *PlayRequest) (*PlayResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Play not implemented")
+func (UnimplementedPlayerServiceServer) Play(*PlayRequest, PlayerService_PlayServer) error {
+	return status.Errorf(codes.Unimplemented, "method Play not implemented")
 }
 func (UnimplementedPlayerServiceServer) Pause(context.Context, *PauseRequest) (*PauseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Pause not implemented")
@@ -179,22 +202,25 @@ func RegisterPlayerServiceServer(s grpc.ServiceRegistrar, srv PlayerServiceServe
 	s.RegisterService(&PlayerService_ServiceDesc, srv)
 }
 
-func _PlayerService_Play_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PlayRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _PlayerService_Play_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PlayRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(PlayerServiceServer).Play(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.PlayerService/Play",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PlayerServiceServer).Play(ctx, req.(*PlayRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(PlayerServiceServer).Play(m, &playerServicePlayServer{stream})
+}
+
+type PlayerService_PlayServer interface {
+	Send(*PlayResponse) error
+	grpc.ServerStream
+}
+
+type playerServicePlayServer struct {
+	grpc.ServerStream
+}
+
+func (x *playerServicePlayServer) Send(m *PlayResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _PlayerService_Pause_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -321,10 +347,6 @@ var PlayerService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*PlayerServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Play",
-			Handler:    _PlayerService_Play_Handler,
-		},
-		{
 			MethodName: "Pause",
 			Handler:    _PlayerService_Pause_Handler,
 		},
@@ -346,6 +368,11 @@ var PlayerService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Play",
+			Handler:       _PlayerService_Play_Handler,
+			ServerStreams: true,
+		},
 		{
 			StreamName:    "AddSong",
 			Handler:       _PlayerService_AddSong_Handler,
