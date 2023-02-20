@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package proto;
+
+option go_package = ".;pb";
+
+service PlayerService {
+  rpc Play(PlayRequest) returns (PlayResponse) {}
+  rpc Pause(PauseRequest) returns (PauseResponse) {}
+  rpc Next(NextRequest) returns (NextResponse) {}
+  rpc Prev(PrevRequest) returns (PrevResponse) {}
+  rpc AddSong(stream AddSongRequest) returns (AddSongResponse) {}
+  rpc DeleteSong(DeleteSongRequest) returns (DeleteSongResponse) {}
+  rpc UpdateSong(UpdateSongRequest) returns (UpdateSongResponse) {}
+
+}
+
+message PlayRequest {
+}
+message PlayResponse {
+}
+
+message PauseRequest {
+}
+message PauseResponse {
+}
+message NextRequest {}
+message NextResponse{}
+
+message PrevRequest{}
+message PrevResponse{}
+
+message AddSongRequest{
+  bytes chunk = 1;
+}
+message AddSongResponse{}
+
+message DeleteSongRequest{}
+message DeleteSongResponse{}
+message UpdateSongRequest{}
+message UpdateSongResponse{}
+
